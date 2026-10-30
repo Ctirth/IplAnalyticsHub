@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Secrets / local config
+.env
+*.pem
+*.key
+
+# Generated at runtime (downloaded from Cricsheet / rendered by the app)
+data/raw/*
+!data/raw/.gitkeep
+figures/*
+!figures/.gitkeep
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

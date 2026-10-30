@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IPL Official Analytics Hub | Real-Data Insights</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              dark: '#080c14',
+              card: '#0f172a',
+              cardHover: '#1e293b',
+              accent: '#38bdf8',
+              orange: '#f97316',
+              purple: '#a855f7',
+              gold: '#fbbf24',
+              green: '#10b981'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body {
+      background-color: #080c14;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    .glass-card {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(51, 65, 85, 0.5);
+    }
+    .glow-gold {
+      box-shadow: 0 0 25px rgba(251, 191, 36, 0.15);
+    }
+    .glow-orange {
+      box-shadow: 0 0 25px rgba(249, 115, 22, 0.15);
+    }
+    .glow-purple {
+      box-shadow: 0 0 25px rgba(168, 85, 247, 0.15);
+    }
+    .glow-blue {
+      box-shadow: 0 0 25px rgba(56, 189, 248, 0.15);
+    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #080c14;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="text-slate-200 min-h-screen pb-16">
+
+  <!-- Top Navigation Header -->
+  <header class="border-b border-slate-800 bg-slate-900/60 sticky top-0 z-50 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
+          <i class="fa-solid fa-trophy text-white text-lg"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+            IPL Analytics Hub
+            <span class="text-xs bg-emerald-500/20 text-emerald-400 font-semibold px-2 py-0.5 rounded-full border border-emerald-500/30">
+              <i class="fa-solid fa-circle-check text-[10px] mr-1"></i>Real Data
+            </span>
+          </h1>
+          <p class="text-xs text-slate-400">Powered by Cricsheet Live Data, Pandas & Seaborn</p>
+        </div>
+      </div>
+
+      <!-- Year Selector Form -->
+      <div class="flex items-center gap-3">
+        <div class="flex items-center space-x-2 bg-slate-800/80 p-1.5 rounded-xl border border-slate-700/60 shadow-inner">
+          <span class="text-xs font-semibold text-slate-400 pl-2">Select Season:</span>
+          <select id="seasonSelect" onchange="loadSeason(this.value)" class="bg-slate-900 text-white font-bold text-sm rounded-lg px-3 py-1.5 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500 cursor-pointer">
+            {% for s in seasons %}
+              <option value="{{ s }}" {% if s == active_season %}selected{% endif %}>IPL {{ s }}</option>
+            {% endfor %}
+          </select>
+          <button id="refreshBtn" onclick="loadSeason(document.getElementById('seasonSelect').value)" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs transition-all flex items-center gap-1.5 shadow-md shadow-sky-500/20">
+            <i class="fa-solid fa-bolt"></i> Run Analysis
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Quick Season Pills -->
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+    <div class="flex items-center space-x-2 overflow-x-auto py-1 text-xs">
+      <span class="text-slate-400 font-semibold mr-1 flex items-center gap-1"><i class="fa-solid fa-clock-rotate-left"></i> Quick Select:</span>
+      {% for s in seasons[:7] %}
+      <button onclick="selectYear('{{ s }}')" class="year-pill px-3 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium transition-all border border-slate-700">{{ s }}</button>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
+    <div class="w-14 h-14 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+    <p class="text-white font-semibold mt-4 text-base tracking-wide flex items-center gap-2">
+      <i class="fa-solid fa-spinner fa-spin text-sky-400"></i> Processing Official Match Deliveries...
+    </p>
+    <p class="text-xs text-slate-400 mt-1">Calculating ICC NRR, Leaderboards & Matplotlib Figures</p>
+  </div>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+
+    <!-- Hero Cards Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      
+      <!-- Champion Card -->
+      <div class="glass-card rounded-2xl p-5 glow-gold relative overflow-hidden">
+        <div class="absolute -right-3 -top-3 w-20 h-20 bg-amber-500/10 rounded-full blur-xl pointer-events-none"></div>
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
+            <i class="fa-solid fa-crown mr-1"></i> Champion
+          </span>
+          <i class="fa-solid fa-trophy text-amber-400 text-xl"></i>
+        </div>
+        <h3 id="heroChampion" class="text-xl font-extrabold text-white tracking-tight truncate">Loading...</h3>
+        <p id="heroRunnerUp" class="text-xs text-slate-400 mt-1">Runners-up: -</p>
+        <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+          <span id="heroFinalVenue"><i class="fa-solid fa-location-dot mr-1 text-slate-500"></i>Final Venue</span>
+        </div>
+      </div>
+
+      <!-- Orange Cap Card -->
+      <div class="glass-card rounded-2xl p-5 glow-orange relative overflow-hidden">
+        <div class="absolute -right-3 -top-3 w-20 h-20 bg-orange-500/10 rounded-full blur-xl pointer-events-none"></div>
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-bold uppercase tracking-wider text-orange-400 bg-orange-500/10 px-2.5 py-1 rounded-lg border border-orange-500/20">
+            <i class="fa-solid fa-baseball-bat-ball mr-1"></i> Orange Cap
+          </span>
+          <i class="fa-solid fa-fire text-orange-400 text-xl"></i>
+        </div>
+        <h3 id="heroOrangeCapPlayer" class="text-xl font-extrabold text-white tracking-tight truncate">Loading...</h3>
+        <p id="heroOrangeCapRuns" class="text-xs font-semibold text-orange-400 mt-1">- Runs (SR -)</p>
+        <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+          <span id="heroOrangeCapBoundaries"><i class="fa-solid fa-star mr-1 text-amber-500"></i>- Sixes & - Fours</span>
+        </div>
+      </div>
+
+      <!-- Purple Cap Card -->
+      <div class="glass-card rounded-2xl p-5 glow-purple relative overflow-hidden">
+        <div class="absolute -right-3 -top-3 w-20 h-20 bg-purple-500/10 rounded-full blur-xl pointer-events-none"></div>
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-bold uppercase tracking-wider text-purple-400 bg-purple-500/10 px-2.5 py-1 rounded-lg border border-purple-500/20">
+            <i class="fa-solid fa-bowling-ball mr-1"></i> Purple Cap
+          </span>
+          <i class="fa-solid fa-crosshairs text-purple-400 text-xl"></i>
+        </div>
+        <h3 id="heroPurpleCapPlayer" class="text-xl font-extrabold text-white tracking-tight truncate">Loading...</h3>
+        <p id="heroPurpleCapWickets" class="text-xs font-semibold text-purple-400 mt-1">- Wickets (Econ -)</p>
+        <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+          <span id="heroPurpleCapDots"><i class="fa-solid fa-circle-dot mr-1 text-purple-400"></i>- Dot Ball %</span>
+        </div>
+      </div>
+
+      <!-- Season Scope Card -->
+      <div class="glass-card rounded-2xl p-5 glow-blue relative overflow-hidden">
+        <div class="absolute -right-3 -top-3 w-20 h-20 bg-sky-500/10 rounded-full blur-xl pointer-events-none"></div>
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-bold uppercase tracking-wider text-sky-400 bg-sky-500/10 px-2.5 py-1 rounded-lg border border-sky-500/20">
+            <i class="fa-solid fa-chart-line mr-1"></i> Tournament Scale
+          </span>
+          <i class="fa-solid fa-bolt text-sky-400 text-xl"></i>
+        </div>
+        <h3 id="heroTotalMatches" class="text-xl font-extrabold text-white tracking-tight">- Matches</h3>
+        <p id="heroTotalDeliveries" class="text-xs text-slate-400 mt-1">- Deliveries Tracked</p>
+        <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+          <span id="heroTotalSixes"><i class="fa-solid fa-explosion mr-1 text-rose-400"></i>- Sixes Hit</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="flex items-center space-x-1 border-b border-slate-800 mb-6 overflow-x-auto">
+      <button onclick="switchTab('standings')" id="tab-standings" class="tab-btn px-4 py-2.5 text-sm font-bold border-b-2 border-sky-500 text-sky-400 transition-all flex items-center gap-2">
+        <i class="fa-solid fa-list-ol"></i> Points Table
+      </button>
+      <button onclick="switchTab('batting')" id="tab-batting" class="tab-btn px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-white transition-all flex items-center gap-2">
+        <i class="fa-solid fa-baseball-bat-ball text-orange-400"></i> Orange Cap
+      </button>
+      <button onclick="switchTab('bowling')" id="tab-bowling" class="tab-btn px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-white transition-all flex items-center gap-2">
+        <i class="fa-solid fa-bowling-ball text-purple-400"></i> Purple Cap
+      </button>
+      <button onclick="switchTab('phase')" id="tab-phase" class="tab-btn px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-white transition-all flex items-center gap-2">
+        <i class="fa-solid fa-chart-column text-emerald-400"></i> Phase Progression
+      </button>
+      <button onclick="switchTab('venues')" id="tab-venues" class="tab-btn px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-white transition-all flex items-center gap-2">
+        <i class="fa-solid fa-landmark text-amber-400"></i> Stadium Par Scores
+      </button>
+      <button onclick="switchTab('charts')" id="tab-charts" class="tab-btn px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-white transition-all flex items-center gap-2">
+        <i class="fa-solid fa-image text-pink-400"></i> Visual Charts (8)
+      </button>
+    </div>
+
+    <!-- Content Sections -->
+
+    <!-- Section 1: Points Table -->
+    <div id="section-standings" class="tab-content">
+      <div class="glass-card rounded-2xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+          <div>
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              Official League Standings & Playoff Seeding
+              <span class="text-xs bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded font-mono">ICC NRR Formula</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Top 4 advance to Playoffs (Top 2 Qualifier 1 double-chance)</p>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-slate-900/80 text-xs font-bold uppercase text-slate-400 border-b border-slate-800">
+              <tr>
+                <th class="px-6 py-3.5">Rank</th>
+                <th class="px-6 py-3.5">Franchise</th>
+                <th class="px-4 py-3.5 text-center">Played</th>
+                <th class="px-4 py-3.5 text-center">Won</th>
+                <th class="px-4 py-3.5 text-center">Lost</th>
+                <th class="px-4 py-3.5 text-center">NR</th>
+                <th class="px-5 py-3.5 text-center">Points</th>
+                <th class="px-6 py-3.5 text-center">Net Run Rate (NRR)</th>
+                <th class="px-6 py-3.5 text-right">Status</th>
+              </tr>
+            </thead>
+            <tbody id="standingsTableBody" class="divide-y divide-slate-800/60 font-medium">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 2: Orange Cap -->
+    <div id="section-batting" class="tab-content hidden">
+      <div class="glass-card rounded-2xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+          <div>
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              Orange Cap Leaderboard (Top 10 Run Scorers)
+              <span class="text-xs bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded font-bold">Batting Dominance</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Ranked by total tournament runs scored</p>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-slate-900/80 text-xs font-bold uppercase text-slate-400 border-b border-slate-800">
+              <tr>
+                <th class="px-6 py-3.5">Rank</th>
+                <th class="px-6 py-3.5">Batsman</th>
+                <th class="px-4 py-3.5 text-center">Innings</th>
+                <th class="px-5 py-3.5 text-center font-bold text-orange-400">Runs</th>
+                <th class="px-4 py-3.5 text-center">High Score</th>
+                <th class="px-5 py-3.5 text-center">Strike Rate</th>
+                <th class="px-5 py-3.5 text-center">Average</th>
+                <th class="px-4 py-3.5 text-center">4s</th>
+                <th class="px-4 py-3.5 text-center font-bold text-rose-400">6s</th>
+                <th class="px-6 py-3.5 text-right">Boundary Run %</th>
+              </tr>
+            </thead>
+            <tbody id="battingTableBody" class="divide-y divide-slate-800/60 font-medium">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 3: Purple Cap -->
+    <div id="section-bowling" class="tab-content hidden">
+      <div class="glass-card rounded-2xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+          <div>
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              Purple Cap Leaderboard (Top 10 Wicket Takers)
+              <span class="text-xs bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded font-bold">Bowling Impact</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Ranked by wickets taken and bowling economy rate</p>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-slate-900/80 text-xs font-bold uppercase text-slate-400 border-b border-slate-800">
+              <tr>
+                <th class="px-6 py-3.5">Rank</th>
+                <th class="px-6 py-3.5">Bowler</th>
+                <th class="px-4 py-3.5 text-center">Innings</th>
+                <th class="px-4 py-3.5 text-center">Overs</th>
+                <th class="px-5 py-3.5 text-center font-bold text-purple-400">Wickets</th>
+                <th class="px-5 py-3.5 text-center">Economy</th>
+                <th class="px-5 py-3.5 text-center">Bowling Avg</th>
+                <th class="px-5 py-3.5 text-center">Strike Rate</th>
+                <th class="px-6 py-3.5 text-right font-bold text-sky-400">Dot Ball %</th>
+              </tr>
+            </thead>
+            <tbody id="bowlingTableBody" class="divide-y divide-slate-800/60 font-medium">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 4: Phase Velocity -->
+    <div id="section-phase" class="tab-content hidden">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6" id="phaseCards">
+        <!-- Dynamically populated phase cards -->
+      </div>
+      
+      <div class="glass-card rounded-2xl p-6">
+        <h3 class="text-base font-bold text-white mb-2 flex items-center gap-2">
+          <i class="fa-solid fa-bolt text-amber-400"></i> Death Overs Finishing Specialists (Overs 16-20)
+        </h3>
+        <p class="text-xs text-slate-400 mb-4">Batters with highest strike efficiency in high-pressure death overs</p>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-slate-900/80 text-xs font-bold uppercase text-slate-400 border-b border-slate-800">
+              <tr>
+                <th class="px-6 py-3.5">Batsman</th>
+                <th class="px-4 py-3.5 text-center">Death Balls</th>
+                <th class="px-4 py-3.5 text-center font-bold text-amber-400">Death Runs</th>
+                <th class="px-4 py-3.5 text-center">Fours</th>
+                <th class="px-4 py-3.5 text-center font-bold text-rose-400">Sixes</th>
+                <th class="px-5 py-3.5 text-center font-bold text-emerald-400">Death Strike Rate</th>
+                <th class="px-6 py-3.5 text-right">Balls Per Boundary</th>
+              </tr>
+            </thead>
+            <tbody id="finishersTableBody" class="divide-y divide-slate-800/60 font-medium">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 5: Venues -->
+    <div id="section-venues" class="tab-content hidden">
+      <div class="glass-card rounded-2xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-800">
+          <h2 class="text-base font-bold text-white flex items-center gap-2">
+            Stadium Profiles & Average 1st Innings Par Scores
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">High-scoring dynamics and chasing bias across tournament venues</p>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-slate-900/80 text-xs font-bold uppercase text-slate-400 border-b border-slate-800">
+              <tr>
+                <th class="px-6 py-3.5">Venue</th>
+                <th class="px-4 py-3.5 text-center">Matches</th>
+                <th class="px-5 py-3.5 text-center font-bold text-amber-400">Avg 1st Inn Score</th>
+                <th class="px-5 py-3.5 text-center">Avg 2nd Inn Score</th>
+                <th class="px-4 py-3.5 text-center text-rose-400">Highest Score</th>
+                <th class="px-5 py-3.5 text-center font-bold text-emerald-400">Chase Win %</th>
+                <th class="px-6 py-3.5 text-right font-bold text-purple-400">Avg Sixes / Match</th>
+              </tr>
+            </thead>
+            <tbody id="venuesTableBody" class="divide-y divide-slate-800/60 font-medium">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 6: Charts Gallery -->
+    <div id="section-charts" class="tab-content hidden">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="chartsGrid">
+        <!-- Dynamically populated image cards -->
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    let currentSeason = '{{ active_season }}';
+
+    function selectYear(year) {
+      document.getElementById('seasonSelect').value = year;
+      loadSeason(year);
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('border-sky-500', 'text-sky-400');
+        btn.classList.add('border-transparent', 'text-slate-400');
+      });
+
+      const activeContent = document.getElementById(`section-${tabId}`);
+      const activeBtn = document.getElementById(`tab-${tabId}`);
+      if (activeContent) activeContent.classList.remove('hidden');
+      if (activeBtn) {
+        activeBtn.classList.add('border-sky-500', 'text-sky-400');
+        activeBtn.classList.remove('border-transparent', 'text-slate-400');
+      }
+    }
+
+    async function loadSeason(season) {
+      currentSeason = season;
+      const overlay = document.getElementById('loadingOverlay');
+      overlay.classList.remove('hidden');
+
+      try {
+        const resp = await fetch(`/api/season/${encodeURIComponent(season)}`);
+        let json;
+        try { json = await resp.json(); }
+        catch (e) { json = { status: 'error', message: `Server returned an invalid response (HTTP ${resp.status}).` }; }
+        if (json.status === 'success') {
+          renderDashboard(json.data);
+        } else {
+          alert('Error loading season: ' + json.message);
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Could not reach the server or render this season: ' + err.message);
+      } finally {
+        overlay.classList.add('hidden');
+      }
+    }
+
+    function renderDashboard(data) {
+      // 1. Hero Summary
+      document.getElementById('heroChampion').innerText = data.champion;
+      document.getElementById('heroRunnerUp').innerText = `Runners-up: ${data.runner_up}`;
+      document.getElementById('heroFinalVenue').innerHTML = `<i class="fa-solid fa-location-dot mr-1 text-slate-500"></i> ${data.final_venue}`;
+
+      document.getElementById('heroOrangeCapPlayer').innerText = data.orange_cap.Batsman;
+      document.getElementById('heroOrangeCapRuns').innerText = `${data.orange_cap.Runs} Runs (SR ${data.orange_cap.Strike_Rate})`;
+      document.getElementById('heroOrangeCapBoundaries').innerHTML = `<i class="fa-solid fa-star mr-1 text-amber-500"></i> ${data.orange_cap.Sixes} Sixes & ${data.orange_cap.Fours} Fours`;
+
+      document.getElementById('heroPurpleCapPlayer').innerText = data.purple_cap.Bowler;
+      document.getElementById('heroPurpleCapWickets').innerText = `${data.purple_cap.Wickets} Wickets (Econ ${data.purple_cap.Economy})`;
+      document.getElementById('heroPurpleCapDots').innerHTML = `<i class="fa-solid fa-circle-dot mr-1 text-purple-400"></i> ${data.purple_cap.Dot_Pct}% Dot Balls`;
+
+      document.getElementById('heroTotalMatches').innerText = `${data.total_matches} Matches`;
+      document.getElementById('heroTotalDeliveries').innerText = `${data.total_deliveries.toLocaleString()} Deliveries Tracked`;
+      document.getElementById('heroTotalSixes').innerHTML = `<i class="fa-solid fa-explosion mr-1 text-rose-400"></i> ${data.total_sixes.toLocaleString()} Sixes Hit`;
+
+      // 2. Standings Table
+      const standingsBody = document.getElementById('standingsTableBody');
+      standingsBody.innerHTML = '';
+      data.points_table.forEach(row => {
+        const isQualified = row.Rank <= 4;
+        const nrrColor = row.NRR >= 0 ? 'text-emerald-400' : 'text-rose-400';
+        const nrrSign = row.NRR > 0 ? '+' : '';
+        const badge = isQualified 
+          ? `<span class="px-2 py-0.5 text-xs font-bold rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Qualified</span>`
+          : `<span class="px-2 py-0.5 text-xs font-medium rounded bg-slate-800 text-slate-500">Eliminated</span>`;
+        
+        const rowHtml = `
+          <tr class="${isQualified ? 'bg-sky-950/20' : ''} hover:bg-slate-800/40 transition-colors">
+            <td class="px-6 py-4 font-bold ${row.Rank === 1 ? 'text-amber-400' : 'text-slate-300'}">${row.Rank}</td>
+            <td class="px-6 py-4 font-bold text-white flex items-center gap-2">
+              ${row.Team}
+              ${row.Team === data.champion ? '<i class="fa-solid fa-crown text-amber-400 text-xs"></i>' : ''}
+            </td>
+            <td class="px-4 py-4 text-center text-slate-300">${row.Matches}</td>
+            <td class="px-4 py-4 text-center text-emerald-400 font-bold">${row.Won}</td>
+            <td class="px-4 py-4 text-center text-rose-400">${row.Lost}</td>
+            <td class="px-4 py-4 text-center text-slate-400">${row.No_Result || row.Tied || 0}</td>
+            <td class="px-5 py-4 text-center font-extrabold text-white text-base">${row.Points}</td>
+            <td class="px-6 py-4 text-center font-mono font-bold ${nrrColor}">${nrrSign}${row.NRR.toFixed(3)}</td>
+            <td class="px-6 py-4 text-right">${badge}</td>
+          </tr>
+        `;
+        standingsBody.insertAdjacentHTML('beforeend', rowHtml);
+      });
+
+      // 3. Batting Table
+      const battingBody = document.getElementById('battingTableBody');
+      battingBody.innerHTML = '';
+      data.top_batters.forEach(row => {
+        const medal = row.Rank === 1 ? '🥇' : (row.Rank === 2 ? '🥈' : (row.Rank === 3 ? '🥉' : row.Rank));
+        const rowHtml = `
+          <tr class="${row.Rank === 1 ? 'bg-orange-950/20' : ''} hover:bg-slate-800/40 transition-colors">
+            <td class="px-6 py-3.5 font-bold">${medal}</td>
+            <td class="px-6 py-3.5 font-bold text-white">${row.Batsman}</td>
+            <td class="px-4 py-3.5 text-center text-slate-400">${row.Innings}</td>
+            <td class="px-5 py-3.5 text-center font-extrabold text-orange-400 text-base">${row.Runs}</td>
+            <td class="px-4 py-3.5 text-center text-slate-300">${row.Highest_Score}</td>
+            <td class="px-5 py-3.5 text-center font-mono font-bold text-sky-400">${row.Strike_Rate}</td>
+            <td class="px-5 py-3.5 text-center text-slate-300">${row.Average}</td>
+            <td class="px-4 py-3.5 text-center text-slate-400">${row.Fours}</td>
+            <td class="px-4 py-3.5 text-center font-bold text-rose-400">${row.Sixes}</td>
+            <td class="px-6 py-3.5 text-right font-mono font-semibold text-amber-400">${row.Boundary_Run_Pct}%</td>
+          </tr>
+        `;
+        battingBody.insertAdjacentHTML('beforeend', rowHtml);
+      });
+
+      // 4. Bowling Table
+      const bowlingBody = document.getElementById('bowlingTableBody');
+      bowlingBody.innerHTML = '';
+      data.top_bowlers.forEach(row => {
+        const medal = row.Rank === 1 ? '🟣' : (row.Rank === 2 ? '🥈' : (row.Rank === 3 ? '🥉' : row.Rank));
+        const rowHtml = `
+          <tr class="${row.Rank === 1 ? 'bg-purple-950/20' : ''} hover:bg-slate-800/40 transition-colors">
+            <td class="px-6 py-3.5 font-bold">${medal}</td>
+            <td class="px-6 py-3.5 font-bold text-white">${row.Bowler}</td>
+            <td class="px-4 py-3.5 text-center text-slate-400">${row.Innings}</td>
+            <td class="px-4 py-3.5 text-center text-slate-300">${row.Overs}</td>
+            <td class="px-5 py-3.5 text-center font-extrabold text-purple-400 text-base">${row.Wickets}</td>
+            <td class="px-5 py-3.5 text-center font-mono font-bold text-emerald-400">${row.Economy}</td>
+            <td class="px-5 py-3.5 text-center text-slate-300">${row.Bowling_Average}</td>
+            <td class="px-5 py-3.5 text-center text-slate-400">${row.Bowling_Strike_Rate}</td>
+            <td class="px-6 py-3.5 text-right font-mono font-bold text-sky-400">${row.Dot_Pct}%</td>
+          </tr>
+        `;
+        bowlingBody.insertAdjacentHTML('beforeend', rowHtml);
+      });
+
+      // 5. Phase Cards
+      const phaseCards = document.getElementById('phaseCards');
+      phaseCards.innerHTML = '';
+      data.phase_analytics.forEach(p => {
+        const icon = p.Phase === 'Powerplay' ? 'fa-bolt text-sky-400' : (p.Phase === 'Middle' ? 'fa-shield-halved text-emerald-400' : 'fa-fire-flame-curved text-rose-400');
+        const cardHtml = `
+          <div class="glass-card rounded-2xl p-5 border border-slate-800">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Overs ${p.Overs_Range}</span>
+              <i class="fa-solid ${icon} text-lg"></i>
+            </div>
+            <h3 class="text-lg font-bold text-white">${p.Phase}</h3>
+            <div class="mt-4 grid grid-cols-2 gap-3 text-xs">
+              <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                <span class="text-slate-400 block">Run Rate (RPO)</span>
+                <span class="text-lg font-extrabold text-white font-mono">${p.Run_Rate}</span>
+              </div>
+              <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                <span class="text-slate-400 block">Boundary %</span>
+                <span class="text-lg font-extrabold text-amber-400 font-mono">${p.Boundary_Run_Pct}%</span>
+              </div>
+              <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                <span class="text-slate-400 block">Total Runs</span>
+                <span class="text-sm font-bold text-slate-200">${p.Total_Runs.toLocaleString()}</span>
+              </div>
+              <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                <span class="text-slate-400 block">Balls / Wicket</span>
+                <span class="text-sm font-bold text-slate-200">${p.Balls_Per_Wicket}</span>
+              </div>
+            </div>
+          </div>
+        `;
+        phaseCards.insertAdjacentHTML('beforeend', cardHtml);
+      });
+
+      // 6. Finishers Table
+      const finishersBody = document.getElementById('finishersTableBody');
+      finishersBody.innerHTML = '';
+      data.finishers.forEach(f => {
+        const rowHtml = `
+          <tr class="hover:bg-slate-800/40 transition-colors">
+            <td class="px-6 py-3.5 font-bold text-white">${f.Batsman}</td>
+            <td class="px-4 py-3.5 text-center text-slate-400">${f.Death_Balls}</td>
+            <td class="px-4 py-3.5 text-center font-bold text-amber-400">${f.Death_Runs}</td>
+            <td class="px-4 py-3.5 text-center text-slate-300">${f.Death_Fours}</td>
+            <td class="px-4 py-3.5 text-center font-bold text-rose-400">${f.Death_Sixes}</td>
+            <td class="px-5 py-3.5 text-center font-mono font-extrabold text-emerald-400">${f.Death_Strike_Rate}</td>
+            <td class="px-6 py-3.5 text-right font-mono font-semibold text-slate-300">${f.Balls_Per_Boundary}</td>
+          </tr>
+        `;
+        finishersBody.insertAdjacentHTML('beforeend', rowHtml);
+      });
+
+      // 7. Venue Table
+      const venuesBody = document.getElementById('venuesTableBody');
+      venuesBody.innerHTML = '';
+      data.venue_stats.forEach(v => {
+        const rowHtml = `
+          <tr class="hover:bg-slate-800/40 transition-colors">
+            <td class="px-6 py-3.5 font-bold text-white">${v.Venue}</td>
+            <td class="px-4 py-3.5 text-center text-slate-400">${v.Matches}</td>
+            <td class="px-5 py-3.5 text-center font-bold text-amber-400 text-base font-mono">${v.Avg_1st_Innings_Score}</td>
+            <td class="px-5 py-3.5 text-center text-slate-300 font-mono">${v.Avg_2nd_Innings_Score}</td>
+            <td class="px-4 py-3.5 text-center font-bold text-rose-400 font-mono">${v.Highest_Score}</td>
+            <td class="px-5 py-3.5 text-center font-bold text-emerald-400 font-mono">${v.Chase_Win_Pct}%</td>
+            <td class="px-6 py-3.5 text-right font-bold text-purple-400 font-mono">${v.Avg_Sixes_Per_Match}</td>
+          </tr>
+        `;
+        venuesBody.insertAdjacentHTML('beforeend', rowHtml);
+      });
+
+      // 8. Charts Grid
+      const chartsGrid = document.getElementById('chartsGrid');
+      chartsGrid.innerHTML = '';
+      const chartFiles = [
+        { name: '01_points_table_standings.png', title: 'Points Table & Standings' },
+        { name: '02_orange_cap_top_run_scorers.png', title: 'Orange Cap: Top Run Scorers' },
+        { name: '03_purple_cap_leading_wickettakers.png', title: 'Purple Cap: Wicket Takers & Economy' },
+        { name: '04_toss_impact_and_match_outcomes.png', title: 'Toss Decision & Match Win Impact' },
+        { name: '05_venue_scoring_patterns_distribution.png', title: 'Venue Scoring Distributions' },
+        { name: '06_phase_wise_run_rate_comparison.png', title: 'Phase Run Rate Escalation' },
+        { name: '07_death_overs_finisher_matrix.png', title: 'Death Overs Finisher Matrix' },
+        { name: '08_correlation_heatmap_metrics.png', title: 'Performance Correlation Matrix' }
+      ];
+
+      chartFiles.forEach(c => {
+        const cardHtml = `
+          <div class="glass-card rounded-2xl overflow-hidden p-4 border border-slate-800">
+            <h4 class="text-sm font-bold text-white mb-2 flex items-center gap-2">
+              <i class="fa-solid fa-chart-simple text-sky-400"></i> ${c.title}
+            </h4>
+            <div class="rounded-xl overflow-hidden bg-slate-950 border border-slate-800">
+              <img src="/figures/${data.season_clean}/${c.name}" alt="${c.title}" class="w-full h-auto object-cover hover:scale-105 transition-transform duration-300" loading="lazy">
+            </div>
+            <div class="mt-2 text-right">
+              <a href="/figures/${data.season_clean}/${c.name}" target="_blank" class="text-xs text-sky-400 hover:text-sky-300 font-semibold">
+                <i class="fa-solid fa-arrow-up-right-from-square mr-1"></i> Open Full High-Res
+              </a>
+            </div>
+          </div>
+        `;
+        chartsGrid.insertAdjacentHTML('beforeend', cardHtml);
+      });
+    }
+
+    // Auto-load on page start
+    document.addEventListener('DOMContentLoaded', () => {
+      loadSeason(currentSeason);
+    });
+  </script>
+</body>
+</html>
