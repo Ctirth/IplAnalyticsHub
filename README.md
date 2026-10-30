@@ -78,7 +78,7 @@ Open **http://127.0.0.1:5000**. The first time you open a season, the app downlo
 | Endpoint | Description |
 |---|---|
 | `GET /` | Dashboard |
-| `GET /api/season/<season>` | Full analytics for a season as JSON (a plain year, e.g. `2026` or `2020`; old links like `2020/21` still work) |
+| `GET /api/season/<season>` | Full analytics for a season as JSON (a plain year, e.g. `2026` or `2020`) |
 | `GET /figures/<year>/<file>` | Generated chart image |
 
 > Seasons are always plain calendar years. Cricsheet's own labels (`2007/08` = IPL 2008, `2009/10` = IPL 2010, `2020/21` = IPL 2020) are translated internally, so no slash-named folders or files are created.
